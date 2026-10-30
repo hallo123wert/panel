@@ -9,6 +9,12 @@ on:
       - published
   schedule:
     - cron: '0 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release Tag zum Bauen (z. B. v1.0.0). Leer lassen für den neuesten Tag.'
+        required: false
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -34,10 +40,10 @@ jobs:
     steps:
       - name: Code checkout
         uses: actions/checkout@v7
-      
+
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v4
-      
+
       - name: Build the base PHP image
         uses: docker/build-push-action@v7
         with:
@@ -52,7 +58,7 @@ jobs:
 
       - name: Export image to file
         run: docker save -o base-php-${{ matrix.arch }}.tar base-php:${{ matrix.arch }}
-      
+
       - name: Push the docker build to the artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -77,22 +83,33 @@ jobs:
     # Always run against a tag, even if the commit into the tag has [docker skip] within the commit message.
     if: "!contains(github.ref, 'main') || (!contains(github.event.head_commit.message, 'skip docker') && !contains(github.event.head_commit.message, 'docker skip'))"
     steps:
-        # Fetch the latest release tag from GitHub API before checkout and metadata so we can check out the correct ref and tag the image
-      - name: Get latest release tag (scheduled)
+      # Fetch the latest release tag from GitHub API before checkout and metadata so we can check out the correct ref and tag the image
+      - name: Get latest release tag (scheduled / dispatch)
         id: release_info
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
-          LATEST_TAG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -w "\n%{http_code}" https://api.github.com/repos/${{ github.repository }}/releases/latest | tail -1 | head -1)
-          HTTP_CODE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -w "%{http_code}" -o /dev/null https://api.github.com/repos/${{ github.repository }}/releases/latest)
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Failed to fetch latest release (HTTP $HTTP_CODE)"
-            exit 1
+          # Wenn manuell ein Tag mitgegeben wurde, benutze diesen:
+          INPUT_TAG="${{ inputs.tag }}"
+          
+          if [ -n "$INPUT_TAG" ]; then
+            LATEST_TAG="$INPUT_TAG"
+          else
+            RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -w "\n%{http_code}" https://api.github.com/repos/${{ github.repository }}/releases/latest)
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "Failed to fetch latest release (HTTP $HTTP_CODE)"
+              exit 1
+            fi
+
+            LATEST_TAG=$(echo "$BODY" | jq -r '.tag_name')
+            if [ "$LATEST_TAG" = "null" ] || [ -z "$LATEST_TAG" ]; then
+              echo "No release found"
+              exit 1
+            fi
           fi
-          LATEST_TAG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name')
-          if [ "$LATEST_TAG" = "null" ] || [ -z "$LATEST_TAG" ]; then
-            echo "No release found"
-            exit 1
-          fi
+
           echo "version_tag=${LATEST_TAG#v}" >> $GITHUB_OUTPUT
           echo "schedule_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
@@ -109,14 +126,14 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=latest,enable=${{ (github.event_name == 'release' && github.event.action == 'published' && github.event.release.prerelease == false) || github.event_name == 'schedule' }}
-            type=raw,value=${{ steps.release_info.outputs.version_tag }},enable=${{ github.event_name == 'schedule' }}
+            type=raw,value=latest,enable=${{ (github.event_name == 'release' && github.event.action == 'published' && github.event.release.prerelease == false) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+            type=raw,value=${{ steps.release_info.outputs.schedule_tag }},enable=${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
             type=ref,event=tag
             type=ref,event=branch
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
-      
+
       # We Need to start it in host mode else it can't acces the local registry on port 5000
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v4
@@ -136,12 +153,12 @@ jobs:
           echo "version_tag=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-        # Download the base PHP image AMD64
+      # Download the base PHP image AMD64
       - uses: actions/download-artifact@v8
         with:
           name: base-php-amd64.tar
-        
-        # Download the base PHP image ARM64
+
+      # Download the base PHP image ARM64
       - uses: actions/download-artifact@v8
         with:
           name: base-php-arm64.tar
@@ -155,36 +172,36 @@ jobs:
           docker push localhost:5000/base-php:amd64
           docker push localhost:5000/base-php:arm64
           rm base-php-arm64.tar base-php-amd64.tar
-          
-        # Scheduled runs check out the latest release tag, which may predate the action, so fetch it from the ref this workflow runs from (inside .github so .dockerignore keeps it out of the build context)
+
+      # Scheduled runs check out the latest release tag, which may predate the action, so fetch it from the ref this workflow runs from (inside .github so .dockerignore keeps it out of the build context)
       - name: Check out the stamp-version action
-        if: "(github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'schedule'"
+        if: "(github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'"
         uses: actions/checkout@v7
         with:
           path: .github/workflow-actions
           sparse-checkout: .github/actions/stamp-version
 
       - name: Update version in config/app.php (tag)
-        if: "(github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'schedule'"
+        if: "(github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'"
         uses: ./.github/workflow-actions/.github/actions/stamp-version
         with:
-          version: ${{ github.event_name == 'schedule' && steps.release_info.outputs.version_tag || steps.build_info.outputs.version_tag }}
-              
+          version: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.release_info.outputs.version_tag || steps.build_info.outputs.version_tag }}
+
       - name: Build and Push (tag)
         uses: docker/build-push-action@v7
-        if: "(github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'schedule'"
+        if: "(github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'"
         with:
           context: .
           file: ./Dockerfile
           push: true
           platforms: 'linux/amd64,linux/arm64'
           build-args: |
-            VERSION=${{ github.event_name == 'schedule' && steps.release_info.outputs.version_tag || steps.build_info.outputs.version_tag }}
+            VERSION=${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.release_info.outputs.version_tag || steps.build_info.outputs.version_tag }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: type=gha,scope=tagged${{ matrix.os }}
           cache-to: type=gha,scope=tagged${{ matrix.os }},mode=max
-        
+
       - name: Build and Push (main)
         uses: docker/build-push-action@v7
         if: "github.event_name == 'push' && contains(github.ref, 'main')"
