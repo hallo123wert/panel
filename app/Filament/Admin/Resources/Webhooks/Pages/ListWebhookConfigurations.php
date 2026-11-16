@@ -20,8 +20,7 @@ class ListWebhookConfigurations extends ListRecords
 
     public function updatedActiveTab(): void
     {
-        $this->tableGrouping = null;
-        $this->tableFilters = [];
+        $this->resetTable();
     }
 
     public function getTabs(): array

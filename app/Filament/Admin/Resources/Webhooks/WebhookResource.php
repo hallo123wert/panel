@@ -141,21 +141,10 @@ class WebhookResource extends Resource
                 SelectFilter::make('type')
                     ->options(fn () => WebhookTypes::getOptions())
                     ->attribute('type'),
-                Filter::make('server_id')
-                    ->schema([
-                        Select::make('server_id')
-                            ->label(trans('admin/webhook.server'))
-                            ->options(fn () => Server::query()->pluck('name', 'id')->toArray())
-                            ->placeholder(trans('filament-tables::table.filters.select.placeholder'))
-                            ->visible(fn ($livewire) => $isServerTab($livewire)),
-                    ])
-                    ->query(fn (Builder $query, array $data, $livewire) => $query->when(
-                        $isServerTab($livewire) && filled($data['server_id'] ?? null),
-                        fn (Builder $query) => $query->where('server_id', $data['server_id'])
-                    ))
-                    ->indicateUsing(fn (array $data, $livewire) => $isServerTab($livewire) && filled($data['server_id'] ?? null)
-                        ? trans('admin/webhook.server') . ': ' . Server::query()->whereKey($data['server_id'])->value('name')
-                        : null),
+                SelectFilter::make('server_id')
+                    ->label(trans('admin/webhook.server'))
+                    ->options(fn () => Server::query()->pluck('name', 'id')->toArray())
+                    ->visible(fn ($livewire) => $isServerTab($livewire)),
             ]);
     }
 
