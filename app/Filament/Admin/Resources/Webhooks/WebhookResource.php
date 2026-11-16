@@ -177,8 +177,6 @@ class WebhookResource extends Resource
                                         TextInput::make('description')
                                             ->label(trans('admin/webhook.description'))
                                             ->required(),
-                                        Hidden::make('server_id')
-                                            ->dehydrated(false),
                                     ]),
                                 Grid::make()
                                     ->schema([

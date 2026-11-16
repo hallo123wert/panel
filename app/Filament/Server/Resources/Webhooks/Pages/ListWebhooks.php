@@ -14,7 +14,6 @@ class ListWebhooks extends ListRecords
 
     protected static string $resource = WebhookResource::class;
 
-    /** @return string[] */
     public function getBreadcrumbs(): array
     {
         return [];

@@ -20,17 +20,8 @@ class ListWebhookConfigurations extends ListRecords
 
     public function updatedActiveTab(): void
     {
-        if (method_exists(parent::class, 'updatedActiveTab')) {
-            parent::updatedActiveTab();
-        }
-
         $this->tableGrouping = null;
-
-        if (method_exists($this, 'resetTableFiltersForm')) {
-            $this->resetTableFiltersForm();
-        } else {
-            $this->tableFilters = [];
-        }
+        $this->tableFilters = [];
     }
 
     public function getTabs(): array
