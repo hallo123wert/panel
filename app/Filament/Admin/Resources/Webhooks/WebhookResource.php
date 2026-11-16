@@ -39,8 +39,10 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Features\SupportEvents\HandlesEvents;
 
 class WebhookResource extends Resource
@@ -84,10 +86,13 @@ class WebhookResource extends Resource
 
     public static function defaultTable(Table $table): Table
     {
+        $isServerTab = fn ($livewire): bool => ($livewire->activeTab ?? null) === 'server-webhooks';
+
         return $table
             ->groups([
                 'server.name',
             ])
+            ->groupingSettingsHidden(fn ($livewire) => !$isServerTab($livewire))
             ->columns([
                 TextColumn::make('name')
                     ->label(trans('admin/webhook.name')),
@@ -102,7 +107,8 @@ class WebhookResource extends Resource
                     ->label(trans('admin/webhook.server'))
                     ->placeholder('—')
                     ->icon('tabler-server')
-                    ->iconColor('info'),
+                    ->iconColor('info')
+                    ->visible(fn ($livewire) => $isServerTab($livewire)),
                 TextColumn::make('endpoint')
                     ->label(trans('admin/webhook.endpoint'))
                     ->formatStateUsing(fn (string $state) => str($state)->after('://'))
@@ -122,7 +128,8 @@ class WebhookResource extends Resource
                     ->successRedirectUrl(fn (WebhookConfiguration $replica) => EditWebhookConfiguration::getUrl(['record' => $replica])),
             ])
             ->toolbarActions([
-                CreateAction::make(),
+                CreateAction::make()
+                    ->visible(fn ($livewire) => ($livewire->activeTab ?? null) !== 'server-webhooks'),
                 BulkActionGroup::make([
                     DeleteBulkAction::make('exclude_bulk_delete'),
                 ]),
@@ -130,15 +137,25 @@ class WebhookResource extends Resource
             ->emptyStateIcon(TablerIcon::Webhook)
             ->emptyStateDescription('')
             ->emptyStateHeading(trans('admin/webhook.no_webhooks'))
-            ->persistFiltersInSession()
             ->filters([
                 SelectFilter::make('type')
                     ->options(fn () => WebhookTypes::getOptions())
                     ->attribute('type'),
-                SelectFilter::make('server_id')
-                    ->label(trans('admin/webhook.server'))
-                    ->options(fn () => Server::query()->pluck('name', 'id')->toArray()),
-
+                Filter::make('server_id')
+                    ->schema([
+                        Select::make('server_id')
+                            ->label(trans('admin/webhook.server'))
+                            ->options(fn () => Server::query()->pluck('name', 'id')->toArray())
+                            ->placeholder(trans('filament-tables::table.filters.select.placeholder'))
+                            ->visible(fn ($livewire) => $isServerTab($livewire)),
+                    ])
+                    ->query(fn (Builder $query, array $data, $livewire) => $query->when(
+                        $isServerTab($livewire) && filled($data['server_id'] ?? null),
+                        fn (Builder $query) => $query->where('server_id', $data['server_id'])
+                    ))
+                    ->indicateUsing(fn (array $data, $livewire) => $isServerTab($livewire) && filled($data['server_id'] ?? null)
+                        ? trans('admin/webhook.server') . ': ' . Server::query()->whereKey($data['server_id'])->value('name')
+                        : null),
             ]);
     }
 
@@ -147,7 +164,6 @@ class WebhookResource extends Resource
         return $schema
             ->components([
                 Tabs::make('webhook_tabs')
-                    ->persistTab()
                     ->columnSpanFull()
                     ->tabs([
                         Tab::make(trans('admin/webhook.information'))
@@ -158,15 +174,12 @@ class WebhookResource extends Resource
                                         TextInput::make('name')
                                             ->label(trans('admin/webhook.name'))
                                             ->required(),
-                                        Select::make('server_id')
-                                            ->label(trans('admin/webhook.server'))
-                                            ->relationship('server', 'id')
-                                            ->preload()
-                                            ->disabled(),
+                                        TextInput::make('description')
+                                            ->label(trans('admin/webhook.description'))
+                                            ->required(),
+                                        Hidden::make('server_id')
+                                            ->dehydrated(false),
                                     ]),
-                                TextInput::make('description')
-                                    ->label(trans('admin/webhook.description'))
-                                    ->required(),
                                 Grid::make()
                                     ->schema([
                                         WebhookForm::typeSelector(),
@@ -226,10 +239,10 @@ class WebhookResource extends Resource
     public static function getDefaultPages(): array
     {
         return [
-            'index' => ListWebhookConfigurations::route('/'),
-            'create' => CreateWebhookConfiguration::route('/create'),
-            'view' => ViewWebhookConfiguration::route('/{record}'),
-            'edit' => EditWebhookConfiguration::route('/{record}/edit'),
+            'index' => ListWebhooks::route('/'),
+            'create' => CreateWebhook::route('/create'),
+            'view' => ViewWebhook::route('/{record}'),
+            'edit' => EditWebhook::route('/{record}/edit'),
         ];
     }
 }

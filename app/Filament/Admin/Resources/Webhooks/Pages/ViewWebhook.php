@@ -9,6 +9,7 @@ use App\Traits\Filament\MutatesWebhookFormData;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
+use Illuminate\Contracts\Support\Htmlable;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewWebhookConfiguration extends ViewRecord
@@ -22,6 +23,13 @@ class ViewWebhookConfiguration extends ViewRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         return $this->mutateWebhookDataBeforeFill($data);
+    }
+
+    public function getSubheading(): string|Htmlable|null
+    {
+        $server = $this->getRecord()->server;
+
+        return $server ? trans('admin/webhook.server') . ': ' . $server->name : null;
     }
 
     /** @return array<Action|ActionGroup> */

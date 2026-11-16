@@ -11,6 +11,7 @@ use App\Traits\Filament\MutatesWebhookFormData;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
+use Illuminate\Contracts\Support\Htmlable;
 use Filament\Resources\Pages\EditRecord;
 
 class EditWebhookConfiguration extends EditRecord
@@ -20,6 +21,13 @@ class EditWebhookConfiguration extends EditRecord
     use MutatesWebhookFormData;
 
     protected static string $resource = WebhookResource::class;
+
+    public function getSubheading(): string|Htmlable|null
+    {
+        $server = $this->getRecord()->server;
+
+        return $server ? trans('admin/webhook.server') . ': ' . $server->name : null;
+    }
 
     /** @return array<Action|ActionGroup> */
     protected function getDefaultHeaderActions(): array

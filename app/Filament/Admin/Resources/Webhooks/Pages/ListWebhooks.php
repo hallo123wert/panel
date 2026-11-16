@@ -7,8 +7,6 @@ use App\Filament\Admin\Resources\Webhooks\WebhookResource;
 use App\Models\WebhookConfiguration;
 use App\Traits\Filament\CanCustomizeHeaderActions;
 use App\Traits\Filament\CanCustomizeHeaderWidgets;
-use Filament\Actions\Action;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,13 +18,19 @@ class ListWebhookConfigurations extends ListRecords
 
     protected static string $resource = WebhookResource::class;
 
-    /** @return array<Action> */
-    protected function getHeaderActions(): array
+    public function updatedActiveTab(): void
     {
-        return [
-            CreateAction::make()
-                ->hidden(fn () => $this->activeTab === 'server-webhooks'),
-        ];
+        if (method_exists(parent::class, 'updatedActiveTab')) {
+            parent::updatedActiveTab();
+        }
+
+        $this->tableGrouping = null;
+
+        if (method_exists($this, 'resetTableFiltersForm')) {
+            $this->resetTableFiltersForm();
+        } else {
+            $this->tableFilters = [];
+        }
     }
 
     public function getTabs(): array
