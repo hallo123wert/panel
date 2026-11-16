@@ -108,7 +108,7 @@ class WebhookResource extends Resource
                     ->placeholder('—')
                     ->icon('tabler-server')
                     ->iconColor('info')
-                    ->visible(fn ($livewire) => $isServerTab($livewire)),
+                    ->visible($isServerTab),
                 TextColumn::make('endpoint')
                     ->label(trans('admin/webhook.endpoint'))
                     ->formatStateUsing(fn (string $state) => str($state)->after('://'))
