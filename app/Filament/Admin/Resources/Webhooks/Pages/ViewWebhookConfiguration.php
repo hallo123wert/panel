@@ -9,7 +9,6 @@ use App\Traits\Filament\MutatesWebhookFormData;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
-use Illuminate\Contracts\Support\Htmlable;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewWebhookConfiguration extends ViewRecord
@@ -25,7 +24,7 @@ class ViewWebhookConfiguration extends ViewRecord
         return $this->mutateWebhookDataBeforeFill($data);
     }
 
-    public function getSubheading(): string|Htmlable|null
+    public function getSubheading(): ?string
     {
         $server = $this->getRecord()->server;
 

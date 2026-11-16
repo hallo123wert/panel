@@ -11,7 +11,6 @@ use App\Traits\Filament\MutatesWebhookFormData;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
-use Illuminate\Contracts\Support\Htmlable;
 use Filament\Resources\Pages\EditRecord;
 
 class EditWebhookConfiguration extends EditRecord
@@ -22,7 +21,7 @@ class EditWebhookConfiguration extends EditRecord
 
     protected static string $resource = WebhookResource::class;
 
-    public function getSubheading(): string|Htmlable|null
+    public function getSubheading(): ?string
     {
         $server = $this->getRecord()->server;
 
