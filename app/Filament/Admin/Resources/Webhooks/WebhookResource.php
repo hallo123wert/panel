@@ -239,10 +239,10 @@ class WebhookResource extends Resource
     public static function getDefaultPages(): array
     {
         return [
-            'index' => ListWebhooks::route('/'),
-            'create' => CreateWebhook::route('/create'),
-            'view' => ViewWebhook::route('/{record}'),
-            'edit' => EditWebhook::route('/{record}/edit'),
+            'index' => ListWebhookConfigurations::route('/'),
+            'create' => CreateWebhookConfiguration::route('/create'),
+            'view' => ViewWebhookConfiguration::route('/{record}'),
+            'edit' => EditWebhookConfiguration::route('/{record}/edit'),
         ];
     }
 }
