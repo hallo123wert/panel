@@ -129,7 +129,7 @@ class WebhookResource extends Resource
             ])
             ->toolbarActions([
                 CreateAction::make()
-                    ->visible(fn ($livewire) => ($livewire->activeTab ?? null) !== 'server-webhooks'),
+                    ->hidden($isServerTab),
                 BulkActionGroup::make([
                     DeleteBulkAction::make('exclude_bulk_delete'),
                 ]),
@@ -144,7 +144,7 @@ class WebhookResource extends Resource
                 SelectFilter::make('server_id')
                     ->label(trans('admin/webhook.server'))
                     ->options(fn () => Server::query()->pluck('name', 'id')->toArray())
-                    ->visible(fn ($livewire) => $isServerTab($livewire)),
+                    ->visible($isServerTab),
             ]);
     }
 
